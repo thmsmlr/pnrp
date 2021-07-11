@@ -5,7 +5,7 @@ Hate that you can't write real software in a Jupyter Notebook?
 Well do I have the project for you.
 
 <p align="center">
-  <img width="600" src="https://cdn.rawgit.com/thmsmlr/pnrp/fecc02d/assets/demo.svg">
+  <img width="600" src="https://raw.githubusercontent.com/thmsmlr/pnrp/master/assets/demo.svg">
 </p>
 
 Pete and Repeat (pnrp) brings all the goodness of the REPL and Jupyter Notebooks to your regular old Python projects.
