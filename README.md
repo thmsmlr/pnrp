@@ -1,4 +1,4 @@
-# Pete and Repeat
+<h1 align="center">Pete and Repeat</h1>
 
 <p align="center">
   Love the Python REPL?</br>
