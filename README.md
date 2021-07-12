@@ -42,5 +42,6 @@ That is why we'll provide you an escape hatch to rerun from specific points in y
 - [ ] Multi-file / import support
 - [ ] AST Based statement parsing
 - [ ] AST Dependency based rerun
+- [ ] Explore [`sys.settrace`](https://docs.python.org/3/library/sys.html#sys.settrace) for code dependencies
 - [ ] Pretty printing
 - [ ] Server / Client model ?? (to better support interactivity, interrupts, etc.)
