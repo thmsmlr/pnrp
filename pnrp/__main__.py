@@ -1,6 +1,6 @@
 import sys
-import riri
+import pnrp
 
 if __name__ == '__main__':
     [_, fpath, *args] = sys.argv
-    riri.cli(fpath, args)
+    pnrp.cli(fpath, args)
