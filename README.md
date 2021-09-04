@@ -27,6 +27,34 @@ We are able to do this by monitoring the files of any imported module, analyzing
 This is of course no silver bullet, Python is a highly dynamic language and there are situations when this won't work.
 That is why we'll provide you an escape hatch to rerun from specific points in your script onward.
 
+## How it works, by example
+
+Suppose we have a python program
+
+```python
+# Script at time t
+
+data = open('some-big-file.txt', 'r').read()
+print(len(data))
+```
+
+We then modify the script,
+
+```python
+# Script at time t+1
+import re
+
+expr = re.compile('Pete (and)? repeat')
+
+data = open('some-big-file.txt', 'r').read()
+lines = data.split('\n')
+print(len([x for x in lines if expr.match(x)]))
+```
+
+Rerunning the script normally would cause our machine to reread `some-big-file.txt` on each iteration.
+With pnrp, we intelligently look at your code to see that line 6 is unaltered so we cache the computation and only run the lines that were changed.
+
+
 ## Feature Comparison
 
 
@@ -41,7 +69,7 @@ That is why we'll provide you an escape hatch to rerun from specific points in y
 
 - [ ] Multi-file / import support
 - [X] AST Based statement parsing
-- [ ] AST Dependency based rerun
+- [X] AST Dependency based rerun
 - [ ] Explore [`sys.settrace`](https://docs.python.org/3/library/sys.html#sys.settrace) for code dependencies
 - [ ] Pretty printing
 - [ ] Server / Client model ?? (to better support interactivity, interrupts, etc.)
