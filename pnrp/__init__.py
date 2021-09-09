@@ -87,8 +87,8 @@ def exprs_to_run(curr_ast: List['Expression'], next_ast: List['Expression']):
     """
     # Calculate the new or changed statements to be run
     changed_exprs = []
-    curr_code_exprs = [ast.unparse(x) for x in curr_ast]
-    next_code_exprs = [ast.unparse(x) for x in next_ast]
+    curr_code_exprs = [ast.dump(x, include_attributes=False) for x in curr_ast]
+    next_code_exprs = [ast.dump(x, include_attributes=False) for x in next_ast]
     diff = difflib.SequenceMatcher(a=curr_code_exprs, b=next_code_exprs)
     for tag, i1, i2, j1, j2 in diff.get_opcodes():
         if tag == 'replace':
@@ -99,14 +99,21 @@ def exprs_to_run(curr_ast: List['Expression'], next_ast: List['Expression']):
     changed_exprs = [x for slst in changed_exprs for x in slst]
 
     def extract_assignments(expr):
+        """Given an expression, extract all the top-level variable reassignments
+        that occur. A list of all assignment syntax can be found at
+
+        https://docs.python.org/3/library/ast.html#abstract-grammar
+        """
         if isinstance(expr, (ast.FunctionDef, ast.AsyncFunctionDef, ast.ClassDef)):
             return [expr.name]
         elif isinstance(expr, (ast.Assign,)):
-            return [extract_assignments(sexpr) for sexpr in expr.targets]
+            return [expr for sexpr in expr.targets for expr in extract_assignments(sexpr)]
+        elif isinstance(expr, (ast.AugAssign, ast.AnnAssign)):
+            return extract_assignments(expr.target)
         elif isinstance(expr, (ast.Name,)):
             return expr.id
         elif isinstance(expr, (ast.List, ast.Tuple)):
-            return [extract_assignments(sexpr) for sexpr in expr.elts]
+            return [expr for sexpr in expr.elts for expr in extract_assignments(sexpr)]
 
         return []
 
@@ -124,7 +131,8 @@ def exprs_to_run(curr_ast: List['Expression'], next_ast: List['Expression']):
             exprs.append(expr)
             continue
 
-        co = compile(ast.unparse(expr), '<string>', 'exec')
+        wexpr = ast.Module(body=[expr], type_ignores=[])
+        co = compile(wexpr, '<string>', 'exec')
         names = set(co.co_names)
         if names & changed_names:
             exprs.append(expr)
@@ -140,23 +148,27 @@ def driver(fpath, args):
         srccode = open(fpath, 'r').read()
         modname, _ = fpath.rsplit('.', 1)
 
-        next_ast = ast.parse(srccode).body
+        try:
+            next_ast = ast.parse(srccode).body
+        except SyntaxError:
+            traceback.print_exc()
+            continue
+
         exprs = exprs_to_run(curr_ast, next_ast)
 
         if not exprs:
             prompt('File saved, but nothing to run')
-            continue
+        else:
+            prompt(fpath, 'Changed!')
 
-        prompt(fpath, 'Changed!')
-
-        for expr in exprs:
-            exprstr = ast.get_source_segment(srccode, expr)
-            code = compile(exprstr, modname, 'exec')
-            try:
-                exec(code, gvars)
-            except:
-                traceback.print_exc()
-                break
+            for expr in exprs:
+                try:
+                    wexpr = ast.Module(body=[expr], type_ignores=[])
+                    code = compile(wexpr, modname, 'exec')
+                    exec(code, gvars)
+                except:
+                    traceback.print_exc()
+                    break
 
         curr_ast = next_ast
 
