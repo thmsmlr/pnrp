@@ -9,6 +9,7 @@ These tests are generally of the form,
 import ast
 import inspect
 import pnrp
+import pytest
 
 
 def str2ast(x):
@@ -273,3 +274,27 @@ def test_handles_ann_assign():
         a: int = 2
     """
     )
+
+
+# We'll come back to this later, good test though
+@pytest.mark.skip
+def test_handles_overwriting_variables():
+    curr_ast = str2ast("""
+        a = 1
+        print(a)
+    """)
+    next_ast = str2ast(
+        """
+        a = 1
+        print(a)
+        a = 2
+        print(a + 1)
+    """
+    )
+
+    exprs = pnrp.exprs_to_run(curr_ast, next_ast)
+
+    assert ast2str(exprs) == inspect.cleandoc("""
+        a = 2
+        print(a + 1)
+    """)

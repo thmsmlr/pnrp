@@ -42,7 +42,7 @@ def filewatcher(fpath):
             mtime = nmtime
 
             if os.path.exists(fullfpath):
-                yield fullfpath
+                yield fullfpath, open(fullfpath, 'r').read()
 
         time.sleep(0.5)
 
@@ -141,11 +141,10 @@ def exprs_to_run(curr_ast: List['Expression'], next_ast: List['Expression']):
     return exprs
 
 
-def driver(fpath, args):
+def driver(fchanges, gvars=None):
     curr_ast = []
-    gvars, lvars = {}, {}
-    for _ in filewatcher(fpath):
-        srccode = open(fpath, 'r').read()
+    gvars = {} if gvars is None else gvars
+    for fpath, srccode in fchanges:
         modname, _ = fpath.rsplit('.', 1)
 
         try:
@@ -169,9 +168,10 @@ def driver(fpath, args):
                 except:
                     traceback.print_exc()
                     break
-
-        curr_ast = next_ast
+            else:
+                curr_ast = next_ast
 
 
 def cli(fpath, args):
-    driver(fpath, args)
+    del sys.argv[0]
+    driver(filewatcher(fpath))
