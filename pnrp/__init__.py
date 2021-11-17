@@ -1,4 +1,5 @@
 import os
+import os.path
 import sys
 import time
 import importlib
@@ -27,6 +28,7 @@ class ANSI:
 
 prompt = lambda *args: print(ANSI.DIM + '>', *args, ANSI.RESET)
 eprint = lambda *args: print(*args, file=sys.stderr)
+HOME_DIR = os.path.expanduser('~/.pnrp')
 
 
 def filewatcher(fpath):
@@ -141,12 +143,21 @@ def exprs_to_run(curr_ast: List['Expression'], next_ast: List['Expression']):
     return exprs
 
 
-def driver(fchanges, gvars=None):
+def flush_runstate(run_state):
+    """Write out the runstate so code editors can read it and
+    present the results inline with the code"""
+    with open(f'{HOME_DIR}/runstate', 'w') as f:
+        f.write('\n'.join(run_state))
+
+
+def driver(fchanges, gvars=None, flush_runstate=flush_runstate):
     curr_ast = []
     gvars = {} if gvars is None else gvars
+
     for fpath, srccode in fchanges:
         modname, _ = fpath.rsplit('.', 1)
 
+        # Parse new code, determine which statements to run
         try:
             next_ast = ast.parse(srccode).body
         except SyntaxError:
@@ -155,23 +166,43 @@ def driver(fchanges, gvars=None):
 
         exprs = exprs_to_run(curr_ast, next_ast)
 
+        # Print out the state of what needs to be run
+        run_state = ['.'] * (srccode.count('\n') + 1)
+        for expr in exprs:
+            num_lines = 1 + (expr.end_lineno - expr.lineno)
+            run_state[expr.lineno - 1:expr.end_lineno] = ['~'] * num_lines  # Mark cahnged
+
+        flush_runstate(run_state)
+
+        # Run the changed expressions
         if not exprs:
             prompt('File saved, but nothing to run')
+            curr_ast = next_ast
         else:
             prompt(fpath, 'Changed!')
 
             for expr in exprs:
+                num_lines = 1 + (expr.end_lineno - expr.lineno)
                 try:
                     wexpr = ast.Module(body=[expr], type_ignores=[])
                     code = compile(wexpr, modname, 'exec')
+                    run_state[expr.lineno - 1:expr.end_lineno] = ['>>'] * num_lines  # Mark running
+                    flush_runstate(run_state)
                     exec(code, gvars)
-                except:
+                    run_state[expr.lineno - 1:expr.end_lineno] = ['~'] * num_lines  # Mark complete
+                except Exception:
+                    run_state[expr.lineno - 1:expr.end_lineno] = ['x'] * num_lines  # Mark failed
+                    flush_runstate(run_state)
                     traceback.print_exc()
                     break
             else:
                 curr_ast = next_ast
+                run_state = ['.'] * (srccode.count('\n') + 1)  # Mark all complete
+                flush_runstate(run_state)
 
 
 def cli(fpath, args):
     del sys.argv[0]
+    # Ensure we have a homedir setup
+    os.makedirs(HOME_DIR, exist_ok=True)
     driver(filewatcher(fpath))
